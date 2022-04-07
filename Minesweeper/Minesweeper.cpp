@@ -5,11 +5,11 @@
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "winmm.lib")
 
-#define WINDOW_X 500
-#define WINDOW_Y 500
+#define WINDOW_X 900
+#define WINDOW_Y 900
 #define MAP_X 10
 #define MAP_Y 10
-#define MINES 20
+#define MINES 5
 
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 void EnableOpenGL(HWND hwnd, HDC*, HGLRC*);
@@ -32,6 +32,7 @@ struct Area {
 };
 
 Area Field[MAP_X][MAP_Y];
+int checked_mines = 0;
 bool is_work = true;
 
 bool IsInMap(int x, int y) {
@@ -75,19 +76,37 @@ void OpenFields(int x,int y) {
 				if (IsInMap(x + i, y + j))
 					OpenFields(x + i, y + j);
 	}
-	else Field[x][y].is_open = true;
+	else {
+		Field[x][y].is_open = true;
+	}
 }
 
 void IsTouchedMine(int x,int y) {
 	if (Field[x][y].is_bomb && is_work) {
 		for (int i = 0;i < MAP_X;i++) {
 			for (int j = 0;j < MAP_Y;j++) {
-				if (Field[i][j].is_bomb)
+				if (Field[i][j].is_bomb && !Field[i][j].is_flag) {
 					Field[i][j].is_open = true;
+				}
+					
 			}
 		}
 		is_work = false;
+		Beep(300, 250);
+		Beep(200, 250);
 	}
+}
+
+bool IsChecked() {
+	if (checked_mines == MINES) {
+		is_work = false;
+		Beep(400, 125);
+		Beep(450, 125);
+		Beep(500, 125);
+		Beep(600, 375);
+		return true;
+	}
+	else return false;
 }
 
 void line(double x1, double y1, double x2, double y2) {
@@ -186,6 +205,8 @@ void Paint() {
 void GameBegin() {
 	srand(time(NULL));
 	is_work = true;
+	checked_mines = 0;
+	Beep(800, 500);
 	ClearField();
 	PlantMine();
 }
@@ -301,23 +322,31 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case WM_LBUTTONDOWN:
 	{
-		POINTFLOAT pf;
-		ScreenToGL(hwnd, LOWORD(lParam), HIWORD(lParam), &pf.x, &pf.y);
-		int xx = int(pf.x);
-		int yy = int(pf.y);
-		if (IsInMap(xx, yy) && !Field[xx][yy].is_flag)
-			OpenFields(xx, yy);
-		IsTouchedMine(xx, yy);
+		if (is_work) {
+			POINTFLOAT pf;
+			ScreenToGL(hwnd, LOWORD(lParam), HIWORD(lParam), &pf.x, &pf.y);
+			Beep(500, 120);
+			int xx = int(pf.x);
+			int yy = int(pf.y);
+			if (IsInMap(xx, yy) && !Field[xx][yy].is_flag)
+				OpenFields(xx, yy);
+			IsTouchedMine(xx, yy);
+			IsChecked();
+		}
+		else GameBegin();
 	}
 		break;
 	case WM_RBUTTONDOWN:
 	{
 		POINTFLOAT pf;
 		ScreenToGL(hwnd, LOWORD(lParam), HIWORD(lParam), &pf.x, &pf.y);
+		Beep(400, 120);
 		int xx = int(pf.x);
 		int yy = int(pf.y);
-		if (IsInMap(xx, yy))
+		if (IsInMap(xx, yy)) {
 			Field[xx][yy].is_flag = !Field[xx][yy].is_flag;
+			if (Field[xx][yy].is_bomb && Field[xx][yy].is_flag) checked_mines++;
+		}
 	}
 	break;
 
