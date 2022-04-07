@@ -17,6 +17,13 @@ void DisableOpenGL(HWND, HDC, HGLRC);
 
 bool is_pause = false;
 
+void ScreenToGL(HWND hwnd, int x, int y, float* ox, float* oy) {
+	RECT rct;
+	GetClientRect(hwnd, &rct);
+	*ox = x / float(rct.right) * MAP_X;
+	*oy = MAP_Y - y / float(rct.bottom) * MAP_Y;
+}
+
 struct Area {
 	bool is_flag = false;
 	bool is_bomb = false;
@@ -25,6 +32,7 @@ struct Area {
 };
 
 Area Field[MAP_X][MAP_Y];
+bool is_work = true;
 
 bool IsInMap(int x, int y) {
 	return (x >= 0) && (x < MAP_X) && (y >= 0) && (y < MAP_Y);
@@ -55,6 +63,30 @@ void PlantMine() {
 					if (IsInMap(x + i, y + j))
 						Field[x + i][y + j].neighbour++;
 		}
+	}
+}
+
+void OpenFields(int x,int y) {
+	if (!IsInMap(x, y) || Field[x][y].is_open) return;
+	if (Field[x][y].neighbour == 0) {
+		Field[x][y].is_open = true;
+		for (int i = -1;i < 2;i++)
+			for (int j = -1;j < 2;j++)
+				if (IsInMap(x + i, y + j))
+					OpenFields(x + i, y + j);
+	}
+	else Field[x][y].is_open = true;
+}
+
+void IsTouchedMine(int x,int y) {
+	if (Field[x][y].is_bomb && is_work) {
+		for (int i = 0;i < MAP_X;i++) {
+			for (int j = 0;j < MAP_Y;j++) {
+				if (Field[i][j].is_bomb)
+					Field[i][j].is_open = true;
+			}
+		}
+		is_work = false;
 	}
 }
 
@@ -104,6 +136,26 @@ void ShowMine() {
 	glEnd();
 }
 
+void ShowFlag() {
+	glBegin(GL_TRIANGLE_STRIP);
+	glColor3b(0,0,0);
+	glVertex2d(0.1, 0.1);
+	glVertex2d(0.1, 0.2);
+	glVertex2d(0.9, 0.1);
+	glVertex2d(0.9, 0.2);
+
+	glVertex2d(0.45, 0.2);
+	glVertex2d(0.55, 0.2);
+	glVertex2d(0.45, 0.9);
+	glVertex2d(0.55, 0.9);
+
+	glColor3b(242 / 2, 12 / 2, 12 / 2);
+	glVertex2d(0.5, 0.9);
+	glVertex2d(0.5, 0.45);
+	glVertex2d(0.9, 0.675);
+	glEnd();
+}
+
 void Paint() {
 	glLoadIdentity();
 	glTranslated(-1, -1, 0);
@@ -121,7 +173,11 @@ void Paint() {
 				if (!Field[i][j].is_bomb && Field[i][j].neighbour > 0)
 					ShowNumber(Field[i][j].neighbour);
 			}
-			else ShowClosedField();
+			else { 
+				ShowClosedField();
+				if (Field[i][j].is_flag)
+					ShowFlag();
+			}
 			glPopMatrix();
 		}
 	}
@@ -129,6 +185,7 @@ void Paint() {
 
 void GameBegin() {
 	srand(time(NULL));
+	is_work = true;
 	ClearField();
 	PlantMine();
 }
@@ -241,6 +298,28 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case WM_DESTROY:
 		return 0;
+
+	case WM_LBUTTONDOWN:
+	{
+		POINTFLOAT pf;
+		ScreenToGL(hwnd, LOWORD(lParam), HIWORD(lParam), &pf.x, &pf.y);
+		int xx = int(pf.x);
+		int yy = int(pf.y);
+		if (IsInMap(xx, yy) && !Field[xx][yy].is_flag)
+			OpenFields(xx, yy);
+		IsTouchedMine(xx, yy);
+	}
+		break;
+	case WM_RBUTTONDOWN:
+	{
+		POINTFLOAT pf;
+		ScreenToGL(hwnd, LOWORD(lParam), HIWORD(lParam), &pf.x, &pf.y);
+		int xx = int(pf.x);
+		int yy = int(pf.y);
+		if (IsInMap(xx, yy))
+			Field[xx][yy].is_flag = !Field[xx][yy].is_flag;
+	}
+	break;
 
 	case WM_KEYDOWN:
 	{
