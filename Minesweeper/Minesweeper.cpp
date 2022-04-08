@@ -5,11 +5,11 @@
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "winmm.lib")
 
-#define WINDOW_X 900
-#define WINDOW_Y 900
-#define MAP_X 10
-#define MAP_Y 10
-#define MINES 5
+#define WINDOW_X 500
+#define WINDOW_Y 500
+#define MAP_X 20
+#define MAP_Y 20
+#define MINES 40
 
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 void EnableOpenGL(HWND hwnd, HDC*, HGLRC*);
@@ -32,6 +32,7 @@ struct Area {
 };
 
 Area Field[MAP_X][MAP_Y];
+int checked = 0;
 int checked_mines = 0;
 bool is_work = true;
 
@@ -69,15 +70,18 @@ void PlantMine() {
 
 void OpenFields(int x,int y) {
 	if (!IsInMap(x, y) || Field[x][y].is_open) return;
-	if (Field[x][y].neighbour == 0) {
-		Field[x][y].is_open = true;
-		for (int i = -1;i < 2;i++)
-			for (int j = -1;j < 2;j++)
-				if (IsInMap(x + i, y + j))
-					OpenFields(x + i, y + j);
-	}
-	else {
-		Field[x][y].is_open = true;
+	if (!Field[x][y].is_flag) {
+		if (!Field[x][y].is_bomb) checked++;
+		if (Field[x][y].neighbour == 0) {
+			Field[x][y].is_open = true;
+			for (int i = -1;i < 2;i++)
+				for (int j = -1;j < 2;j++)
+					if (IsInMap(x + i, y + j))
+						OpenFields(x + i, y + j);
+		}
+		else {
+			Field[x][y].is_open = true;
+		}
 	}
 }
 
@@ -98,7 +102,7 @@ void IsTouchedMine(int x,int y) {
 }
 
 bool IsChecked() {
-	if (checked_mines == MINES) {
+	if (checked == MAP_X*MAP_Y - MINES && checked_mines == MINES) {
 		is_work = false;
 		Beep(400, 125);
 		Beep(450, 125);
@@ -205,6 +209,7 @@ void Paint() {
 void GameBegin() {
 	srand(time(NULL));
 	is_work = true;
+	checked = 0;
 	checked_mines = 0;
 	Beep(800, 500);
 	ClearField();
@@ -328,10 +333,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Beep(500, 120);
 			int xx = int(pf.x);
 			int yy = int(pf.y);
-			if (IsInMap(xx, yy) && !Field[xx][yy].is_flag)
+			if (IsInMap(xx, yy) && !Field[xx][yy].is_flag){
 				OpenFields(xx, yy);
-			IsTouchedMine(xx, yy);
-			IsChecked();
+				IsTouchedMine(xx, yy);
+				IsChecked();
+			}
 		}
 		else GameBegin();
 	}
