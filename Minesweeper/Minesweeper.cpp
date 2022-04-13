@@ -352,6 +352,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		if (IsInMap(xx, yy)) {
 			Field[xx][yy].is_flag = !Field[xx][yy].is_flag;
 			if (Field[xx][yy].is_bomb && Field[xx][yy].is_flag) checked_mines++;
+			IsChecked();
 		}
 	}
 	break;
